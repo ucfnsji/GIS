@@ -1,0 +1,123 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+getwd()
+setwd("N:/Documents")
+install.packages('plotly')
+install.packages("tidyverse")
+install.packages("maptools")
+install.packages('ggmap')
+install.packages(c("classint", "OpenStreetMap", "tmap"))
+install.packages(c("RColorBrewer", "Sp", "rgeos", "tmap", "tmaptools", "sf", "downloader", "rgdal", "geojsonio"))
+```
+
+```{r}
+library(tidyverse)
+LondonData <- read_csv("https://files.datapress.com/london/dataset/ward-profiles-and-atlas/2015-09-24T14:21:24/ward-profiles-excel-version.csv", na = "n/a")
+class(LondonData)
+datatypelist <- data.frame(cbind(lapply(LondonData,class)))
+LondonData <- read_csv("https://files.datapress.com/london/dataset/ward-profiles-and-atlas/2015-09-24T14:21:24/ward-profiles-excel-version.csv")
+LondonBoroughs<-LondonData[626:658,]
+LondonData <- data.frame(LondonData)
+LondonBoroughs <- LondonData[grep("^E09",LondonData[,3]),]
+head(LondonBoroughs)
+LondonBoroughs<-LondonBoroughs[,c(1,19,20,21)]
+names(LondonBoroughs)[1] <- c("Borough Name")
+plot(LondonBoroughs$Male.life.expectancy..2009.13, LondonBoroughs$X..children.in.reception.year.who.are.obese...2011.12.to.2013.14)
+library(plotly)
+plot_ly(LondonBoroughs, x = ~Male.life.expectancy..2009.13, y = ~X..children.in.reception.year.who.are.obese...2011.12.to.2013.14, text = ~LondonBoroughs$`Borough Name`, type = "scatter", mode = "markers")
+library(RColorBrewer)
+library(classInt)
+library(OpenStreetMap)
+library(sp)
+library(rgeos)
+library(tmap)
+library(tmaptools)
+library(sf)
+library(rgdal)
+library(geojsonio)
+```
+
+
+```{r}
+EW <- geojson_read("http://geoportal.statistics.gov.uk/datasets/8edafbe3276d4b56aec60991cbddda50_2.geojson", what = "sp")
+LondonMap <- EW[grep("^E09",EW@data$lad15cd),]
+qtm(LondonMap)
+BoroughMapSF <- read_shape("N:/GIS/w3/Rproject1/BoundaryData/england_lad_2011.shp", as.sf = TRUE)
+BoroughMapSP <- LondonMap
+library(methods)
+class(BoroughMapSF)
+newSF <- st_as_sf(BoroughMapSP)
+newSP <- as(newSF, "Spatial")
+BoroughMapSP <- as(BoroughMapSF, "Spatial")
+BoroughMapSP@data <- data.frame(BoroughMapSP@data,LondonData[match(BoroughMapSP@data[,"code"],LondonData[,"New.code"]),])
+head(BoroughMapSP@data)
+BoroughDataMap <- append_data(BoroughMapSF,LondonData, key.shp = "code", key.data = "New.code", ignore.duplicates = TRUE)
+BoroughDataMap2 <- BoroughMapSF %>% left_join(LondonData, by = c("code" = "New.code"))
+library(tmap)
+library(tmaptools)
+```
+
+
+```{r}
+tmap_mode("plot")
+qtm(BoroughDataMap, fill = "Rate.of.JobSeekers.Allowance..JSA..Claimants...2015")
+london_osm <- read_osm(BoroughDataMap, type = "esri", zoom = NULL)
+qtm(london_osm) + 
+  tm_shape(BoroughDataMap) + 
+  tm_polygons("Rate.of.JobSeekers.Allowance..JSA..Claimants...2015", 
+              style="jenks",
+              palette="YlOrBr",
+              midpoint=NA,
+              title="Rate per 1,000 people",
+              alpha = 0.5) + 
+  tm_compass(position = c("left", "bottom"),type = "arrow") + 
+  tm_scale_bar(position = c("left", "bottom")) +
+  tm_layout(title = "Job seekers' Allowance Claimants", legend.position = c("right", "bottom"))
+tm_shape(BoroughDataMap) +
+  tm_polygons(c("Average.Public.Transport.Accessibility.score...2014", "Violence.against.the.person.rate...2014.15"), 
+              style=c("jenks", "pretty"),
+              palette=list("YlOrBr", "Purples"),
+              auto.palette.mapping=FALSE,
+              title=c("Average Public Transport Accessibility", "Violence Against the Person Rate"))
+install.packages("shinyjs")
+library(shinyjs)
+tmaptools::palette_explorer()
+tmap_mode("view")
+tm_shape(BoroughDataMap) +
+  tm_polygons("X..children.in.year.6.who.are.obese..2011.12.to.2013.14",
+              style="jenks",
+              palette="PuRd",
+              midpoint=NA,
+              title="Truffle Shuffle Intensity")
+```
+
+```{r}
+install.packages('ggplot2')
+install.packages('rgeos')
+library(ggplot2)
+library(rgeos)
+```
+
+```{r, warning=FALSE}
+geom_polygon(aes(x=x, y=y), data.frame)
+ggplot()+geom_sf(mapping = aes(geometry=geometry),data = BoroughDataMap)+theme_minimal()
+ggplot()+geom_sf(mapping = aes(geometry=geometry, fill=Median.House.Price...U.00A3.....2014),data = BoroughDataMap)+theme_minimal()
+palette1<-scale_fill_continuous(low="white", high="orange", "Price(£)")
+labels<-labs(list(title="Average House Price 2014",x="Longitude", y="Latitude"))
+ggplot()+geom_sf(mapping = aes(geometry=geometry, fill=Median.House.Price...U.00A3.....2014),data = BoroughDataMap)+theme_minimal()+palette1+labels
+print(BoroughMapSP)
+print(BoroughMapSF)
+```
+
+
+
+
+
